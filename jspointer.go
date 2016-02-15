@@ -124,6 +124,47 @@ type matchCtx struct {
 	tokens   []string
 }
 
+// json element name -> field index
+type fieldMap map[string]int
+
+// struct type to -> fieldMap
+var struct2FieldMap = map[reflect.Type]fieldMap{}
+
+func getStructMap(v reflect.Value) fieldMap {
+	t := v.Type()
+	fm, ok := struct2FieldMap[t]
+	if ok {
+		return fm
+	}
+
+	fm = fieldMap{}
+	for i := 0; i < t.NumField(); i++ {
+		sf := t.Field(i)
+		if sf.PkgPath != "" { // unexported
+			continue
+		}
+
+		tag := sf.Tag.Get("json")
+		if tag == "" || tag == "-" || tag[0] == ',' {
+			fm[sf.Name] = i
+			continue
+		}
+
+		flen := 0
+		for j := 0; j < len(tag); j++ {
+			if tag[j] == ',' {
+				break
+			}
+			flen = j
+		}
+		fm[tag[:flen+1]] = i
+	}
+
+	struct2FieldMap[t] = fm
+
+	return fm
+}
+
 func (c *matchCtx) apply(item interface{}) {
 	if len(c.tokens) == 0 {
 		c.result = &Result{
@@ -138,6 +179,27 @@ func (c *matchCtx) apply(item interface{}) {
 	for tidx, token := range c.tokens {
 		v := reflect.ValueOf(node)
 		switch v.Kind() {
+		case reflect.Struct:
+			sm := getStructMap(v)
+			i, ok := sm[token]
+			if !ok {
+				c.err = ErrNoSuchKey
+				return
+			}
+			f := v.Field(i)
+			if tidx == lastidx {
+				if c.set {
+					if !f.CanSet() {
+						c.err = errors.New("field cannot be set to")
+						return
+					}
+					f.Set(reflect.ValueOf(c.setvalue))
+					return
+				}
+				c.result = &Result{Kind: f.Kind(), Item: f.Interface()}
+				return
+			}
+			node = f.Interface()
 		case reflect.Map:
 			m := node.(map[string]interface{})
 			n, ok := m[token]

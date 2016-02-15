@@ -127,5 +127,30 @@ func TestSet(t *testing.T) {
 	if !assert.Equal(t, res.Item, 999, "res.Item should be equal to expected") {
 		return
 	}
+}
 
+func TestStruct(t *testing.T) {
+	var s struct {
+		Foo string `json:"foo"`
+		Bar map[string]interface{} `json:"bar"`
+		Baz int
+		quux int
+	}
+
+	if !assert.NoError(t, json.Unmarshal([]byte(`{
+"foo": "foooooooo",
+"bar": {"a": 0, "b": 1},
+"baz": 2
+}`), &s), "json.Unmarshal succeeds") {
+		return
+	}
+
+	res, err := runmatch(t, `/bar/b`, s)
+	if !assert.NoError(t, err, "jsonpointer.Get should succeed") {
+		return
+	}
+
+	if !assert.Equal(t, res.Item, float64(1), "res.Item should be equal to expected value") {
+		return
+	}
 }
