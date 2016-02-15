@@ -27,6 +27,8 @@ func releaseCtx(ctx *matchCtx) {
 	ctxPool.Put(ctx)
 }
 
+// New creates a new JSON pointer for given path spec. If the path fails
+// to be parsed, an error is returned
 func New(path string) (*JSPointer, error) {
 	var p JSPointer
 	if err := p.parse(path); err != nil {
@@ -68,7 +70,8 @@ func (p *JSPointer) parse(s string) error {
 	return nil
 }
 
-func (p JSPointer) Expression() string {
+// String returns the stringified version of this JSON pointer
+func (p JSPointer) String() string {
 	pat := ""
 	for _, token := range p.tokens {
 		p2 := strings.Replace(strings.Replace(token, "~", EncodedTilde, -1), "/", EncodedSlash, -1)
@@ -77,6 +80,9 @@ func (p JSPointer) Expression() string {
 	return pat
 }
 
+// Get applies the JSON pointer to the given item, and returns
+// the result. The Result object contains the matched value
+// and the kind of value.
 func (p JSPointer) Get(item interface{}) (Result, error) {
 	ctx := getCtx()
 	defer releaseCtx(ctx)
@@ -86,6 +92,8 @@ func (p JSPointer) Get(item interface{}) (Result, error) {
 	return Result{Item: ctx.result, Kind: ctx.kind}, ctx.err
 }
 
+// Set applies the JSON pointer to the given item, and sets the
+// value accordingly.
 func (p JSPointer) Set(item interface{}, value interface{}) error {
 	ctx := getCtx()
 	defer releaseCtx(ctx)

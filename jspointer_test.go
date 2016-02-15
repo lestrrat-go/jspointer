@@ -41,7 +41,7 @@ func TestEscaping(t *testing.T) {
 			return
 		}
 
-		if !assert.Equal(t, pat, p.Expression(), "input pattern and generated expression should match") {
+		if !assert.Equal(t, pat, p.String(), "input pattern and generated expression should match") {
 			return
 		}
 	}
