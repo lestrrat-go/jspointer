@@ -1,15 +1,11 @@
 package jspointer
 
 import (
-	"errors"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 )
-
-var ErrInvalidPointer = errors.New("invalid pointer")
-var ErrNoSuchKey = errors.New("no such key in object")
 
 var ctxPool = sync.Pool{
 	New: moreCtx,
@@ -29,21 +25,6 @@ func releaseCtx(ctx *matchCtx) {
 	ctx.tokens = nil
 	ctx.result = nil
 	ctxPool.Put(ctx)
-}
-
-const (
-	EncodedTilde = "~0"
-	EncodedSlash = "~1"
-	Separator    = '/'
-)
-
-type JSPointer struct {
-	tokens []string
-}
-
-type Result struct {
-	Item interface{}
-	Kind reflect.Kind
 }
 
 func New(path string) (*JSPointer, error) {
@@ -96,13 +77,13 @@ func (p JSPointer) Expression() string {
 	return pat
 }
 
-func (p JSPointer) Get(item interface{}) (*Result, error) {
+func (p JSPointer) Get(item interface{}) (Result, error) {
 	ctx := getCtx()
 	defer releaseCtx(ctx)
 
 	ctx.tokens = p.tokens
 	ctx.apply(item)
-	return ctx.result, ctx.err
+	return Result{Item: ctx.result, Kind: ctx.kind}, ctx.err
 }
 
 func (p JSPointer) Set(item interface{}, value interface{}) error {
@@ -118,7 +99,8 @@ func (p JSPointer) Set(item interface{}, value interface{}) error {
 
 type matchCtx struct {
 	err      error
-	result   *Result
+	result   interface{}
+	kind     reflect.Kind
 	set      bool
 	setvalue interface{}
 	tokens   []string
@@ -129,8 +111,11 @@ type fieldMap map[string]int
 
 // struct type to -> fieldMap
 var struct2FieldMap = map[reflect.Type]fieldMap{}
+var fieldmapMutex = sync.Mutex{}
 
 func getStructMap(v reflect.Value) fieldMap {
+	fieldmapMutex.Lock()
+	defer fieldmapMutex.Unlock()
 	t := v.Type()
 	fm, ok := struct2FieldMap[t]
 	if ok {
@@ -167,10 +152,8 @@ func getStructMap(v reflect.Value) fieldMap {
 
 func (c *matchCtx) apply(item interface{}) {
 	if len(c.tokens) == 0 {
-		c.result = &Result{
-			Kind: reflect.TypeOf(item).Kind(),
-			Item: item,
-		}
+		c.kind = reflect.TypeOf(item).Kind()
+		c.result = item
 		return
 	}
 
@@ -183,20 +166,21 @@ func (c *matchCtx) apply(item interface{}) {
 			sm := getStructMap(v)
 			i, ok := sm[token]
 			if !ok {
-				c.err = ErrNoSuchKey
+				c.err = ErrNotFound
 				return
 			}
 			f := v.Field(i)
 			if tidx == lastidx {
 				if c.set {
 					if !f.CanSet() {
-						c.err = errors.New("field cannot be set to")
+						c.err = ErrCanNotSet
 						return
 					}
 					f.Set(reflect.ValueOf(c.setvalue))
 					return
 				}
-				c.result = &Result{Kind: f.Kind(), Item: f.Interface()}
+				c.result = f.Interface()
+				c.kind = f.Kind()
 				return
 			}
 			node = f.Interface()
@@ -204,7 +188,7 @@ func (c *matchCtx) apply(item interface{}) {
 			m := node.(map[string]interface{})
 			n, ok := m[token]
 			if !ok {
-				c.err = ErrNoSuchKey
+				c.err = ErrNotFound
 				return
 			}
 
@@ -212,10 +196,8 @@ func (c *matchCtx) apply(item interface{}) {
 				if c.set {
 					m[token] = c.setvalue
 				} else {
-					c.result = &Result{
-						Kind: v.Kind(),
-						Item: n,
-					}
+					c.result = n
+					c.kind = v.Kind()
 				}
 				return
 			}
@@ -230,7 +212,7 @@ func (c *matchCtx) apply(item interface{}) {
 			}
 
 			if wantidx < 0 || len(m) <= wantidx {
-				c.err = errors.New("array index out of bounds")
+				c.err = ErrSliceIndexOutOfBounds
 				return
 			}
 
@@ -238,20 +220,18 @@ func (c *matchCtx) apply(item interface{}) {
 				if c.set {
 					m[wantidx] = c.setvalue
 				} else {
-					c.result = &Result{
-						Kind: v.Kind(),
-						Item: m[wantidx],
-					}
+					c.result = m[wantidx]
+					c.kind = v.Kind()
 				}
 				return
 			}
 			node = m[wantidx]
 		default:
-			c.err = errors.New("not found")
+			c.err = ErrNotFound
 			return
 		}
 	}
 
 	// If you fell through here, there was a big problem
-	c.err = errors.New("not found")
+	c.err = ErrNotFound
 }
