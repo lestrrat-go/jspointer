@@ -81,15 +81,14 @@ func (p JSPointer) String() string {
 }
 
 // Get applies the JSON pointer to the given item, and returns
-// the result. The Result object contains the matched value
-// and the kind of value.
-func (p JSPointer) Get(item interface{}) (Result, error) {
+// the result. 
+func (p JSPointer) Get(item interface{}) (interface{}, error) {
 	ctx := getCtx()
 	defer releaseCtx(ctx)
 
 	ctx.tokens = p.tokens
 	ctx.apply(item)
-	return Result{Item: ctx.result, Kind: ctx.kind}, ctx.err
+	return ctx.result, ctx.err
 }
 
 // Set applies the JSON pointer to the given item, and sets the
@@ -108,7 +107,6 @@ func (p JSPointer) Set(item interface{}, value interface{}) error {
 type matchCtx struct {
 	err      error
 	result   interface{}
-	kind     reflect.Kind
 	set      bool
 	setvalue interface{}
 	tokens   []string
@@ -160,7 +158,6 @@ func getStructMap(v reflect.Value) fieldMap {
 
 func (c *matchCtx) apply(item interface{}) {
 	if len(c.tokens) == 0 {
-		c.kind = reflect.TypeOf(item).Kind()
 		c.result = item
 		return
 	}
@@ -188,7 +185,6 @@ func (c *matchCtx) apply(item interface{}) {
 					return
 				}
 				c.result = f.Interface()
-				c.kind = f.Kind()
 				return
 			}
 			node = f.Interface()
@@ -205,7 +201,6 @@ func (c *matchCtx) apply(item interface{}) {
 					m[token] = c.setvalue
 				} else {
 					c.result = n
-					c.kind = v.Kind()
 				}
 				return
 			}
@@ -229,7 +224,6 @@ func (c *matchCtx) apply(item interface{}) {
 					m[wantidx] = c.setvalue
 				} else {
 					c.result = m[wantidx]
-					c.kind = v.Kind()
 				}
 				return
 			}

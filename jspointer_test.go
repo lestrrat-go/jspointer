@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/lestrrat/jspointer"
+	"github.com/lestrrat/go-jspointer"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -47,7 +47,7 @@ func TestEscaping(t *testing.T) {
 	}
 }
 
-func runmatch(t *testing.T, pat string, m interface{}) (jspointer.Result, error) {
+func runmatch(t *testing.T, pat string, m interface{}) (interface{}, error) {
 	p, err := jspointer.New(pat)
 	if !assert.NoError(t, err, "jspointer.New should succeed for '%s'", pat) {
 		return jspointer.Result{}, err
@@ -61,7 +61,7 @@ func TestFullDocument(t *testing.T) {
 	if !assert.NoError(t, err, "jsonpointer.Get should succeed") {
 		return
 	}
-	if !assert.Equal(t, res.Item, target, "res.Item should be equal to target") {
+	if !assert.Equal(t, res, target, "res should be equal to target") {
 		return
 	}
 }
@@ -80,7 +80,7 @@ func TestGetObject(t *testing.T) {
 			return
 		}
 
-		if !assert.Equal(t, res.Item, expected, "res.Item should be equal to expected") {
+		if !assert.Equal(t, res, expected, "res should be equal to expected") {
 			return
 		}
 	}
@@ -98,7 +98,7 @@ func TestGetArray(t *testing.T) {
 			return
 		}
 
-		if !assert.Equal(t, res.Item, expected, "res.Item should be equal to expected") {
+		if !assert.Equal(t, res, expected, "res should be equal to expected") {
 			return
 		}
 	}
@@ -124,7 +124,7 @@ func TestSet(t *testing.T) {
 		return
 	}
 
-	if !assert.Equal(t, res.Item, 999, "res.Item should be equal to expected") {
+	if !assert.Equal(t, res, 999, "res should be equal to expected") {
 		return
 	}
 }
@@ -150,7 +150,7 @@ func TestStruct(t *testing.T) {
 		return
 	}
 
-	if !assert.Equal(t, res.Item, float64(1), "res.Item should be equal to expected value") {
+	if !assert.Equal(t, res, float64(1), "res should be equal to expected value") {
 		return
 	}
 }

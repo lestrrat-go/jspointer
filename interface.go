@@ -1,9 +1,6 @@
 package jspointer
 
-import (
-	"errors"
-	"reflect"
-)
+import "errors"
 
 // Errors used in jspointer package
 var (
@@ -23,10 +20,4 @@ const (
 // JSPointer represents a JSON pointer
 type JSPointer struct {
 	tokens []string
-}
-
-// Result represents the result of evaluating a JSON pointer
-type Result struct {
-	Item interface{}
-	Kind reflect.Kind
 }
