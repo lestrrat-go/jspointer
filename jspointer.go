@@ -189,23 +189,22 @@ func (c *matchCtx) apply(item interface{}) {
 			}
 			node = f.Interface()
 		case reflect.Map:
-			m := node.(map[string]interface{})
-			n, ok := m[token]
-			if !ok {
+			n := v.MapIndex(reflect.ValueOf(token))
+			if reflect.Zero(n.Type()) == n {
 				c.err = ErrNotFound
 				return
 			}
 
 			if tidx == lastidx {
 				if c.set {
-					m[token] = c.setvalue
+					n.Set(reflect.ValueOf(c.setvalue))
 				} else {
-					c.result = n
+					c.result = n.Interface()
 				}
 				return
 			}
 
-			node = n
+			node = n.Interface()
 		case reflect.Slice:
 			m := node.([]interface{})
 			wantidx, err := strconv.Atoi(token)
