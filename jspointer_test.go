@@ -50,7 +50,7 @@ func TestEscaping(t *testing.T) {
 func runmatch(t *testing.T, pat string, m interface{}) (interface{}, error) {
 	p, err := jspointer.New(pat)
 	if !assert.NoError(t, err, "jspointer.New should succeed for '%s'", pat) {
-		return jspointer.Result{}, err
+		return nil, err
 	}
 
 	return p.Get(m)
