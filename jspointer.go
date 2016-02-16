@@ -159,6 +159,7 @@ func getStructMap(v reflect.Value) fieldMap {
 }
 
 var strType = reflect.TypeOf("")
+
 func (c *matchCtx) apply(item interface{}) {
 	if len(c.tokens) == 0 {
 		c.result = item
@@ -169,6 +170,9 @@ func (c *matchCtx) apply(item interface{}) {
 	node := item
 	for tidx, token := range c.tokens {
 		v := reflect.ValueOf(node)
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
 		switch v.Kind() {
 		case reflect.Struct:
 			sm := getStructMap(v)
