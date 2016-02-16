@@ -131,6 +131,7 @@ func (c *matchCtx) apply(item interface{}) {
 		if v.Kind() == reflect.Ptr {
 			v = v.Elem()
 		}
+
 		switch v.Kind() {
 		case reflect.Struct:
 			i := structinfo.StructFieldFromJSONName(v, token)
@@ -171,7 +172,7 @@ func (c *matchCtx) apply(item interface{}) {
 				vt = reflect.ValueOf(token)
 			}
 			n := v.MapIndex(vt)
-			if reflect.Zero(n.Type()) == n {
+			if (reflect.Value{}) == n {
 				c.err = ErrNotFound
 				return
 			}
