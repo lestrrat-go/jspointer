@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/lestrrat/go-structinfo"
 )
 
 var ctxPool = sync.Pool{
@@ -114,50 +116,6 @@ type matchCtx struct {
 	tokens   []string
 }
 
-// json element name -> field index
-type fieldMap map[string]int
-
-// struct type to -> fieldMap
-var struct2FieldMap = map[reflect.Type]fieldMap{}
-var fieldmapMutex = sync.Mutex{}
-
-func getStructMap(v reflect.Value) fieldMap {
-	fieldmapMutex.Lock()
-	defer fieldmapMutex.Unlock()
-	t := v.Type()
-	fm, ok := struct2FieldMap[t]
-	if ok {
-		return fm
-	}
-
-	fm = fieldMap{}
-	for i := 0; i < t.NumField(); i++ {
-		sf := t.Field(i)
-		if sf.PkgPath != "" { // unexported
-			continue
-		}
-
-		tag := sf.Tag.Get("json")
-		if tag == "" || tag == "-" || tag[0] == ',' {
-			fm[sf.Name] = i
-			continue
-		}
-
-		flen := 0
-		for j := 0; j < len(tag); j++ {
-			if tag[j] == ',' {
-				break
-			}
-			flen = j
-		}
-		fm[tag[:flen+1]] = i
-	}
-
-	struct2FieldMap[t] = fm
-
-	return fm
-}
-
 var strType = reflect.TypeOf("")
 
 func (c *matchCtx) apply(item interface{}) {
@@ -175,9 +133,8 @@ func (c *matchCtx) apply(item interface{}) {
 		}
 		switch v.Kind() {
 		case reflect.Struct:
-			sm := getStructMap(v)
-			i, ok := sm[token]
-			if !ok {
+			i := structinfo.StructFieldFromJSONName(v, token)
+			if i < 0 {
 				c.err = ErrNotFound
 				return
 			}
