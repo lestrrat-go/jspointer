@@ -8,7 +8,7 @@ JSON pointer for Go
 
 # Features
 
-* Compile and match against Maps, Slices, Structs
+* Compile and match against Maps, Slices, Structs (or pointers to those)
 * Set values in each of those
 
 # Usage
