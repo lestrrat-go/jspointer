@@ -133,16 +133,17 @@ func TestStruct(t *testing.T) {
 	var s struct {
 		Foo string `json:"foo"`
 		Bar map[string]interface{} `json:"bar"`
-		Baz int
+		Baz map[int]int `json:"baz"`
 		quux int
 	}
 
-	if !assert.NoError(t, json.Unmarshal([]byte(`{
-"foo": "foooooooo",
-"bar": {"a": 0, "b": 1},
-"baz": 2
-}`), &s), "json.Unmarshal succeeds") {
-		return
+	s.Foo = "foooooo"
+	s.Bar = map[string]interface{}{
+		"a": 0,
+		"b": 1,
+	}
+	s.Baz = map[int]int{
+		2: 3,
 	}
 
 	res, err := runmatch(t, `/bar/b`, s)
@@ -150,7 +151,18 @@ func TestStruct(t *testing.T) {
 		return
 	}
 
-	if !assert.Equal(t, res, float64(1), "res should be equal to expected value") {
+	if !assert.Equal(t, res, 1, "res should be equal to expected value") {
+		return
+	}
+
+	res, err = runmatch(t, `/baz/2`, s)
+	if !assert.NoError(t, err, "jsonpointer.Get should succeed") {
+		return
+	}
+
+	if !assert.Equal(t, res, 3, "res should be equal to expected value") {
 		return
 	}
 }
+
+

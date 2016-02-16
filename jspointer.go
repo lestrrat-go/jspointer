@@ -1,6 +1,8 @@
 package jspointer
 
 import (
+	"encoding/json"
+	"errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -81,7 +83,7 @@ func (p JSPointer) String() string {
 }
 
 // Get applies the JSON pointer to the given item, and returns
-// the result. 
+// the result.
 func (p JSPointer) Get(item interface{}) (interface{}, error) {
 	ctx := getCtx()
 	defer releaseCtx(ctx)
@@ -156,6 +158,7 @@ func getStructMap(v reflect.Value) fieldMap {
 	return fm
 }
 
+var strType = reflect.TypeOf("")
 func (c *matchCtx) apply(item interface{}) {
 	if len(c.tokens) == 0 {
 		c.result = item
@@ -189,7 +192,24 @@ func (c *matchCtx) apply(item interface{}) {
 			}
 			node = f.Interface()
 		case reflect.Map:
-			n := v.MapIndex(reflect.ValueOf(token))
+			var vt reflect.Value
+			// We shall try to inflate the token to its Go native
+			// type if it's not a string. In other words, try not to
+			// outdo yourselves.
+			if t := v.Type().Key(); t != strType {
+				vt = reflect.New(t).Elem()
+				if err := json.Unmarshal([]byte(token), vt.Addr().Interface()); err != nil {
+					name := t.PkgPath() + "." + t.Name()
+					if name == "" {
+						name = "(anonymous type)"
+					}
+					c.err = errors.New("unsupported conversion of string to " + name)
+					return
+				}
+			} else {
+				vt = reflect.ValueOf(token)
+			}
+			n := v.MapIndex(vt)
 			if reflect.Zero(n.Type()) == n {
 				c.err = ErrNotFound
 				return
@@ -197,7 +217,7 @@ func (c *matchCtx) apply(item interface{}) {
 
 			if tidx == lastidx {
 				if c.set {
-					n.Set(reflect.ValueOf(c.setvalue))
+					v.SetMapIndex(vt, reflect.ValueOf(c.setvalue))
 				} else {
 					c.result = n.Interface()
 				}
