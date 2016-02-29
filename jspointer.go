@@ -138,12 +138,12 @@ func (c *matchCtx) apply(item interface{}) {
 
 		switch v.Kind() {
 		case reflect.Struct:
-			i := structinfo.StructFieldFromJSONName(v, token)
-			if i < 0 {
+			fn := structinfo.StructFieldFromJSONName(v, token)
+			if fn == "" {
 				c.err = ErrNotFound{Ptr: c.raw}
 				return
 			}
-			f := v.Field(i)
+			f := v.FieldByName(fn)
 			if tidx == lastidx {
 				if c.set {
 					if !f.CanSet() {
