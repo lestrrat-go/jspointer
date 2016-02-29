@@ -35,19 +35,22 @@ func releaseCtx(ctx *matchCtx) {
 // to be parsed, an error is returned
 func New(path string) (*JSPointer, error) {
 	var p JSPointer
-	if err := p.parse(path); err != nil {
+	dtokens, err := parse(path)
+	if err != nil {
 		return nil, err
 	}
+	p.raw = path
+	p.tokens = dtokens
 	return &p, nil
 }
 
-func (p *JSPointer) parse(s string) error {
+func parse(s string) ([]string, error) {
 	if s == "" {
-		return nil
+		return nil, nil
 	}
 
 	if s[0] != Separator {
-		return ErrInvalidPointer
+		return nil, ErrInvalidPointer
 	}
 
 	prev := 0
@@ -70,18 +73,12 @@ func (p *JSPointer) parse(s string) error {
 		dtokens = append(dtokens, t)
 	}
 
-	p.tokens = dtokens
-	return nil
+	return dtokens, nil
 }
 
 // String returns the stringified version of this JSON pointer
 func (p JSPointer) String() string {
-	pat := ""
-	for _, token := range p.tokens {
-		p2 := strings.Replace(strings.Replace(token, "~", EncodedTilde, -1), "/", EncodedSlash, -1)
-		pat = pat + "/" + p2
-	}
-	return pat
+	return p.raw
 }
 
 // Get applies the JSON pointer to the given item, and returns
@@ -90,6 +87,7 @@ func (p JSPointer) Get(item interface{}) (interface{}, error) {
 	ctx := getCtx()
 	defer releaseCtx(ctx)
 
+	ctx.raw = p.raw
 	ctx.tokens = p.tokens
 	ctx.apply(item)
 	return ctx.result, ctx.err
@@ -102,6 +100,7 @@ func (p JSPointer) Set(item interface{}, value interface{}) error {
 	defer releaseCtx(ctx)
 
 	ctx.set = true
+	ctx.raw = p.raw
 	ctx.tokens = p.tokens
 	ctx.setvalue = value
 	ctx.apply(item)
@@ -110,10 +109,15 @@ func (p JSPointer) Set(item interface{}, value interface{}) error {
 
 type matchCtx struct {
 	err      error
+	raw      string
 	result   interface{}
 	set      bool
 	setvalue interface{}
 	tokens   []string
+}
+
+func (e ErrNotFound) Error() string {
+	return "match to JSON pointer not found: " + e.Ptr
 }
 
 var strType = reflect.TypeOf("")
@@ -136,7 +140,7 @@ func (c *matchCtx) apply(item interface{}) {
 		case reflect.Struct:
 			i := structinfo.StructFieldFromJSONName(v, token)
 			if i < 0 {
-				c.err = ErrNotFound
+				c.err = ErrNotFound{Ptr: c.raw}
 				return
 			}
 			f := v.Field(i)
@@ -173,7 +177,7 @@ func (c *matchCtx) apply(item interface{}) {
 			}
 			n := v.MapIndex(vt)
 			if (reflect.Value{}) == n {
-				c.err = ErrNotFound
+				c.err = ErrNotFound{Ptr: c.raw}
 				return
 			}
 
@@ -210,11 +214,11 @@ func (c *matchCtx) apply(item interface{}) {
 			}
 			node = m[wantidx]
 		default:
-			c.err = ErrNotFound
+			c.err = ErrNotFound{Ptr: c.raw}
 			return
 		}
 	}
 
 	// If you fell through here, there was a big problem
-	c.err = ErrNotFound
+	c.err = ErrNotFound{Ptr: c.raw}
 }
