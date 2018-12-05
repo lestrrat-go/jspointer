@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/lestrrat/go-structinfo"
+	"github.com/lestrrat-go/structinfo"
 )
 
 type tokens struct {
